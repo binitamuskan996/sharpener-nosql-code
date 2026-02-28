@@ -1,5 +1,7 @@
 const Product = require('../models/productModel');
 const User = require('../models/userModel');
+const Order = require('../models/orderModel');
+const { ObjectId } = require('mongodb');
 
 exports.addProduct = (req, res) => {
   const { title, price, description, userId } = req.body;
@@ -62,5 +64,47 @@ exports.deleteCartItem = (req, res) => {
   User.deleteFromCart(userId, productId)
     .then(() => {
       res.json({ message: "Item removed from cart" });
+    });
+};
+
+exports.placeOrder = (req, res) => {
+  const { userId } = req.body;
+
+  User.findUserById(userId)
+    .then(user => {
+
+      const order = new Order(userId, user.cart.items);
+
+      return order.save()
+        .then(() => {
+          return require('../utils/db-connection')
+            .getDb()
+            .collection('users')
+            .updateOne(
+              { _id: new ObjectId(userId) },
+              { $set: { cart: { items: [] } } }
+            );
+        });
+    })
+    .then(() => {
+      res.json({ message: "Order placed successfully" });
+    })
+    .catch(err => {
+      console.log(err);
+      res.status(500).json({ message: "Error placing order" });
+    });
+};
+
+exports.getOrders = (req, res) => {
+  const userId = req.params.userId;
+
+  Order.fetchByUserId(userId)
+    .then(orders => {
+      console.log(orders);
+      res.json(orders);
+    })
+    .catch(err => {
+      console.log(err);
+      res.status(500).json({ message: "Error fetching orders" });
     });
 };
